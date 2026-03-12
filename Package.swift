@@ -1,10 +1,10 @@
-// swift-tools-version: 5.9
+// swift-tools-version: 6.0
 import PackageDescription
 
 let package = Package(
     name: "test",
     platforms: [
-        .iOS("18.0")
+        .iOS(.v18)
     ],
     targets: [
         .executableTarget(
