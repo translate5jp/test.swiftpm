@@ -54,6 +54,11 @@ struct FlightEntry: Identifiable {
         set { if values.indices.contains(colId) { values[colId] = newValue } }
     }
 
+    /// 空でないセルの数（ノイズ行の除外に使用）
+    var nonEmptyCount: Int {
+        values.filter { !$0.isEmpty }.count
+    }
+
     var hasAnyNumericValue: Bool {
         logbookColumns
             .filter(\.isNumeric)

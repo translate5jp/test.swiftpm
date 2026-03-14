@@ -39,7 +39,9 @@ struct OCRService {
         for obs in sorted.dropFirst() {
             let avgY = current.map(\.boundingBox.midY).reduce(0, +) / CGFloat(current.count)
             let avgH = current.map(\.boundingBox.height).reduce(0, +) / CGFloat(current.count)
-            let threshold = max(avgH * 0.8, 0.015)  // 最低閾値を設けてノイズ耐性を上げる
+            // 閾値は行高の40%: 同一行内のY変動(±20〜30%)を吸収しつつ行間(50〜100%)では分離する
+            // 旧値 avgH*0.8 はログブックの狭い行間(行高の20〜30%)より大きくなり隣行を誤合成していた
+            let threshold = max(avgH * 0.4, 0.005)
 
             if abs(obs.boundingBox.midY - avgY) < threshold {
                 current.append(obs)
