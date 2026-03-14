@@ -23,6 +23,9 @@ let package = Package(
                 .landscapeRight,
                 .landscapeLeft,
                 .portraitUpsideDown(.when(deviceFamilies: [.pad]))
+            ],
+            capabilities: [
+                .camera(intentDescriptions: ["ログブックをスキャンするために使用します"])
             ]
         )
     ],
