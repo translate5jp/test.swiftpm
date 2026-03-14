@@ -49,7 +49,7 @@ struct HomeView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(session.formattedDate)
                             .font(.headline)
-                        Text("\(session.rows.count) 行・\(session.columnCount) 列を認識")
+                        Text("\(session.entries.count) フライト認識済み")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
