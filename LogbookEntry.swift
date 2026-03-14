@@ -22,13 +22,15 @@ let logbookColumns: [LogbookColumn] = [
     LogbookColumn(id: 7,  header: "飛行時間", shortHeader: "合計",  minWidth: 52,  isNumeric: true,  isTime: true),
     LogbookColumn(id: 8,  header: "単独飛行", shortHeader: "単独",  minWidth: 52,  isNumeric: true,  isTime: true),
     LogbookColumn(id: 9,  header: "同乗飛行", shortHeader: "同乗",  minWidth: 52,  isNumeric: true,  isTime: true),
-    LogbookColumn(id: 10, header: "機長時間", shortHeader: "機長",  minWidth: 52,  isNumeric: true,  isTime: true),
-    LogbookColumn(id: 11, header: "計器飛行", shortHeader: "計器",  minWidth: 52,  isNumeric: true,  isTime: true),
-    LogbookColumn(id: 12, header: "夜間飛行(機長)",   shortHeader: "夜PIC", minWidth: 52,  isNumeric: true,  isTime: true),
-    LogbookColumn(id: 13, header: "夜間飛行(副操縦士)", shortHeader: "夜SIC", minWidth: 52,  isNumeric: true,  isTime: true),
-    LogbookColumn(id: 14, header: "離陸回数", shortHeader: "T/O",   minWidth: 44,  isNumeric: true,  isTime: false),
-    LogbookColumn(id: 15, header: "着陸回数", shortHeader: "Ldg",   minWidth: 44,  isNumeric: true,  isTime: false),
-    LogbookColumn(id: 16, header: "備考",     shortHeader: "備考",  minWidth: 100, isNumeric: false, isTime: false),
+    LogbookColumn(id: 10, header: "機長時間",                  shortHeader: "機長",   minWidth: 52,  isNumeric: true,  isTime: true),
+    LogbookColumn(id: 11, header: "クロスカントリー(PIC)",      shortHeader: "XC-PIC", minWidth: 60,  isNumeric: true,  isTime: true),
+    LogbookColumn(id: 12, header: "クロスカントリー(副操縦士)", shortHeader: "XC-SIC", minWidth: 60,  isNumeric: true,  isTime: true),
+    LogbookColumn(id: 13, header: "計器飛行",                  shortHeader: "計器",   minWidth: 52,  isNumeric: true,  isTime: true),
+    LogbookColumn(id: 14, header: "夜間飛行(機長)",            shortHeader: "夜PIC",  minWidth: 52,  isNumeric: true,  isTime: true),
+    LogbookColumn(id: 15, header: "夜間飛行(副操縦士)",        shortHeader: "夜SIC",  minWidth: 52,  isNumeric: true,  isTime: true),
+    LogbookColumn(id: 16, header: "離陸回数",                  shortHeader: "T/O",    minWidth: 44,  isNumeric: true,  isTime: false),
+    LogbookColumn(id: 17, header: "着陸回数",                  shortHeader: "Ldg",    minWidth: 44,  isNumeric: true,  isTime: false),
+    LogbookColumn(id: 18, header: "備考",                      shortHeader: "備考",   minWidth: 100, isNumeric: false, isTime: false),
 ]
 
 // MARK: - 1フライト分のエントリ
