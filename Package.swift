@@ -25,7 +25,7 @@ let package = Package(
                 .portraitUpsideDown(.when(deviceFamilies: [.pad]))
             ],
             capabilities: [
-                .camera(intentDescriptions: ["ログブックをスキャンするために使用します"])
+                .camera(purposeString: "ログブックをスキャンするために使用します")
             ]
         )
     ],
