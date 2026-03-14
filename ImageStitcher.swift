@@ -16,35 +16,35 @@ struct ImageStitcher {
         guard images.count > 1 else { return images[0] }
 
         // 1フレームごとに追加される新規部分の割合（重複を除いた比率）
-        let newFraction = CGFloat(min(captureAngle / hFOV, 1.0))
+        let uniqueContentRatio = CGFloat(min(captureAngle / hFOV, 1.0))
 
-        let h = images.map(\.size.height).min() ?? images[0].size.height
-        let w = images[0].size.width
-        let extraWidth = w * newFraction * CGFloat(images.count - 1)
-        let totalWidth = w + extraWidth
+        let frameHeight = images.map(\.size.height).min() ?? images[0].size.height
+        let frameWidth = images[0].size.width
+        let additionalWidth = frameWidth * uniqueContentRatio * CGFloat(images.count - 1)
+        let totalWidth = frameWidth + additionalWidth
 
         let renderer = UIGraphicsImageRenderer(
-            size: CGSize(width: totalWidth, height: h)
+            size: CGSize(width: totalWidth, height: frameHeight)
         )
 
         return renderer.image { ctx in
             let cgCtx = ctx.cgContext
 
             // 最初のフレームは全幅で描画
-            images[0].draw(in: CGRect(x: 0, y: 0, width: w, height: h))
+            images[0].draw(in: CGRect(x: 0, y: 0, width: frameWidth, height: frameHeight))
 
-            var x: CGFloat = w
+            var xOffset: CGFloat = frameWidth
             for img in images.dropFirst() {
-                let addW = w * newFraction            // 今回描画する幅
-                let skipX = w * (1.0 - newFraction)  // フレーム左端の重複部分
+                let newContentWidth = frameWidth * uniqueContentRatio  // 今回描画する幅
+                let overlapOffset = frameWidth * (1.0 - uniqueContentRatio)  // フレーム左端の重複部分
 
                 // 追加領域だけクリッピングして描画
                 cgCtx.saveGState()
-                cgCtx.clip(to: CGRect(x: x, y: 0, width: addW, height: h))
-                img.draw(in: CGRect(x: x - skipX, y: 0, width: w, height: h))
+                cgCtx.clip(to: CGRect(x: xOffset, y: 0, width: newContentWidth, height: frameHeight))
+                img.draw(in: CGRect(x: xOffset - overlapOffset, y: 0, width: frameWidth, height: frameHeight))
                 cgCtx.restoreGState()
 
-                x += addW
+                xOffset += newContentWidth
             }
         }
     }

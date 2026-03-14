@@ -3,8 +3,8 @@ import UIKit
 
 struct OCRService {
 
-    /// 画像からテキストを認識し、JCAB列数(12)に揃えた行×列の二次元配列を返す
-    func recognize(image: UIImage) async -> [[String]] {
+    /// 画像からテキストを認識し、JCAB列数(14)に揃えた行×列の二次元配列を返す
+    func recognizeText(in image: UIImage) async -> [[String]] {
         guard let cgImage = image.cgImage else { return [] }
 
         return await withCheckedContinuation { continuation in
@@ -13,7 +13,7 @@ struct OCRService {
                     continuation.resume(returning: [])
                     return
                 }
-                continuation.resume(returning: Self.extractRows(results))
+                continuation.resume(returning: Self.groupIntoRows(results))
             }
             request.recognitionLevel = .accurate
             request.recognitionLanguages = ["ja-JP", "en-US"]
@@ -27,47 +27,47 @@ struct OCRService {
 
     // MARK: - 行グループ化 → 列マッピング
 
-    private static func extractRows(_ observations: [VNRecognizedTextObservation]) -> [[String]] {
+    private static func groupIntoRows(_ observations: [VNRecognizedTextObservation]) -> [[String]] {
         // 上から順に並べる（Vision 座標系は左下原点）
-        let sorted = observations.sorted { $0.boundingBox.minY > $1.boundingBox.minY }
-        guard !sorted.isEmpty else { return [] }
+        let topToBottom = observations.sorted { $0.boundingBox.minY > $1.boundingBox.minY }
+        guard !topToBottom.isEmpty else { return [] }
 
         // Step1: Y 座標でグループ化（行の平均 Y と比較して安定させる）
-        var rawGroups: [[VNRecognizedTextObservation]] = []
-        var current: [VNRecognizedTextObservation] = [sorted[0]]
+        var rowGroups: [[VNRecognizedTextObservation]] = []
+        var currentRow: [VNRecognizedTextObservation] = [topToBottom[0]]
 
-        for obs in sorted.dropFirst() {
-            let avgY = current.map(\.boundingBox.midY).reduce(0, +) / CGFloat(current.count)
-            let avgH = current.map(\.boundingBox.height).reduce(0, +) / CGFloat(current.count)
+        for obs in topToBottom.dropFirst() {
+            let avgY = currentRow.map(\.boundingBox.midY).reduce(0, +) / CGFloat(currentRow.count)
+            let avgH = currentRow.map(\.boundingBox.height).reduce(0, +) / CGFloat(currentRow.count)
             let threshold = max(avgH * 0.8, 0.015)  // 最低閾値を設けてノイズ耐性を上げる
 
             if abs(obs.boundingBox.midY - avgY) < threshold {
-                current.append(obs)
+                currentRow.append(obs)
             } else {
-                rawGroups.append(current.sorted { $0.boundingBox.minX < $1.boundingBox.minX })
-                current = [obs]
+                rowGroups.append(currentRow.sorted { $0.boundingBox.minX < $1.boundingBox.minX })
+                currentRow = [obs]
             }
         }
-        rawGroups.append(current.sorted { $0.boundingBox.minX < $1.boundingBox.minX })
+        rowGroups.append(currentRow.sorted { $0.boundingBox.minX < $1.boundingBox.minX })
 
         // Step2: 最多アイテム行を基準に列センターを決定
-        guard let refRow = rawGroups.max(by: { $0.count < $1.count }),
-              refRow.count >= 4 else {
+        guard let referenceRow = rowGroups.max(by: { $0.count < $1.count }),
+              referenceRow.count >= 4 else {
             // フォールバック: そのまま文字列に変換
-            return rawGroups.map { $0.compactMap { $0.topCandidates(1).first?.string } }
+            return rowGroups.map { $0.compactMap { $0.topCandidates(1).first?.string } }
         }
 
-        let colCenters = refRow.map { $0.boundingBox.midX }
+        let columnCenters = referenceRow.map { $0.boundingBox.midX }
 
         // Step3: 全行を列センターにマッピング
-        let colCount = logbookColumns.count
-        return rawGroups.map { row in
-            mapToColumns(row, centers: colCenters, targetCount: colCount)
+        let columnCount = logbookColumns.count
+        return rowGroups.map { row in
+            mapObservationsToColumns(row, centers: columnCenters, targetCount: columnCount)
         }
     }
 
     /// 観測群を列センター配列に対応させ、空セルを "" で埋めた配列を返す
-    private static func mapToColumns(
+    private static func mapObservationsToColumns(
         _ row: [VNRecognizedTextObservation],
         centers: [CGFloat],
         targetCount: Int

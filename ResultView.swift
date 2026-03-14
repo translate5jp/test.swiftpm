@@ -2,7 +2,7 @@ import SwiftUI
 
 struct ResultView: View {
     let session: LogbookSession
-    @State private var entries: [FlightEntry]
+    @State private var entries: [FlightRecord]
 
     init(session: LogbookSession) {
         self.session = session
@@ -11,27 +11,27 @@ struct ResultView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            summaryBar
+            totalsBar
             Divider()
             if entries.isEmpty {
-                emptyState
+                emptyPlaceholder
             } else {
-                logbookTable
+                flightTable
             }
         }
         .navigationTitle("認識結果")
         .navigationBarTitleDisplayMode(.inline)
     }
 
-    // MARK: - 合計サマリーバー（数値列のみ）
+    // MARK: - 数値列の合計サマリーバー
 
-    private var summaryBar: some View {
+    private var totalsBar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 10) {
                 ForEach(logbookColumns.filter(\.isNumeric)) { col in
-                    SummaryCard(
+                    ColumnTotalCard(
                         title: col.shortHeader,
-                        rawValue: sum(col),
+                        rawValue: total(for: col),
                         isTime: col.isTime
                     )
                 }
@@ -44,21 +44,21 @@ struct ResultView: View {
 
     // MARK: - テーブル（縦横スクロール）
 
-    private var logbookTable: some View {
+    private var flightTable: some View {
         ScrollView([.horizontal, .vertical], showsIndicators: true) {
             VStack(alignment: .leading, spacing: 0) {
-                headerRow
+                columnHeaderRow
                 ForEach(entries.indices, id: \.self) { i in
-                    dataRow(index: i)
+                    flightRow(at: i)
                     Divider().background(Color(.systemGray5))
                 }
-                totalsRow
+                columnTotalsRow
             }
             .padding(8)
         }
     }
 
-    private var headerRow: some View {
+    private var columnHeaderRow: some View {
         HStack(spacing: 0) {
             ForEach(logbookColumns) { col in
                 Text(col.shortHeader)
@@ -71,7 +71,7 @@ struct ResultView: View {
         }
     }
 
-    private func dataRow(index: Int) -> some View {
+    private func flightRow(at index: Int) -> some View {
         let bg: Color = index.isMultiple(of: 2) ? .clear : Color(.systemGray6)
         return HStack(spacing: 0) {
             ForEach(logbookColumns) { col in
@@ -94,7 +94,7 @@ struct ResultView: View {
         }
     }
 
-    private var totalsRow: some View {
+    private var columnTotalsRow: some View {
         HStack(spacing: 0) {
             // 最初のセルに「合計」ラベル
             Text("合計")
@@ -104,10 +104,10 @@ struct ResultView: View {
                 .border(Color(.systemGray4))
 
             ForEach(logbookColumns.dropFirst()) { col in
-                let s = sum(col)
-                Text(FlightEntry.formatSum(s, isTime: col.isTime))
+                let value = total(for: col)
+                Text(FlightRecord.formatTotal(value, isTime: col.isTime))
                     .font(.caption.bold())
-                    .foregroundStyle(s > 0 ? Color.primary : Color.secondary)
+                    .foregroundStyle(value > 0 ? Color.primary : Color.secondary)
                     .frame(width: col.minWidth, height: 32, alignment: .center)
                     .background(Color.blue.opacity(0.15))
                     .border(Color(.systemGray4))
@@ -115,7 +115,7 @@ struct ResultView: View {
         }
     }
 
-    private var emptyState: some View {
+    private var emptyPlaceholder: some View {
         ContentUnavailableView(
             "エントリが認識できませんでした",
             systemImage: "text.slash",
@@ -125,25 +125,25 @@ struct ResultView: View {
 
     // MARK: - ヘルパー
 
-    private func sum(_ col: LogbookColumn) -> Double {
-        entries.reduce(0) { $0 + FlightEntry.parseNumeric($1[col.id]) }
+    private func total(for col: LogbookColumn) -> Double {
+        entries.reduce(0) { $0 + FlightRecord.parseHours($1[col.id]) }
     }
 }
 
-// MARK: - サマリーカード
+// MARK: - 列合計カード
 
-private struct SummaryCard: View {
+private struct ColumnTotalCard: View {
     let title: String
     let rawValue: Double
     let isTime: Bool
 
-    private var display: String {
-        FlightEntry.formatSum(rawValue, isTime: isTime)
+    private var formattedTotal: String {
+        FlightRecord.formatTotal(rawValue, isTime: isTime)
     }
 
     var body: some View {
         VStack(spacing: 3) {
-            Text(display == "—" ? (isTime ? "0:00" : "0") : display)
+            Text(formattedTotal == "—" ? (isTime ? "0:00" : "0") : formattedTotal)
                 .font(.system(.title3, design: .monospaced).bold())
                 .foregroundStyle(rawValue > 0 ? Color.primary : Color.secondary)
             Text(title)

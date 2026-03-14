@@ -6,49 +6,49 @@ struct PanoramicScanView: View {
     let onComplete: (LogbookSession) -> Void
 
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var camera = CameraSession()
-    @StateObject private var motion = MotionDetector()
+    @StateObject private var cameraSession = CameraSession()
+    @StateObject private var motionDetector = MotionDetector()
 
     @State private var isScanning = false
     @State private var isProcessing = false
-    @State private var showDeniedAlert = false
+    @State private var isCameraAccessDenied = false
 
-    private let ocr = OCRService()
+    private let ocrService = OCRService()
 
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
 
-            if camera.isAuthorized {
-                CameraPreviewView(session: camera.captureSession)
+            if cameraSession.isAuthorized {
+                CameraPreviewView(session: cameraSession.captureSession)
                     .ignoresSafeArea()
             }
 
             // オーバーレイ UI
             VStack(spacing: 0) {
-                topBar
+                topOverlay
                     .padding()
 
                 Spacer()
 
                 if isProcessing {
-                    processingView
+                    processingOverlay
                         .padding(.bottom, 48)
                 } else {
-                    bottomControls
+                    scanControls
                         .padding(.horizontal)
                         .padding(.bottom, 48)
                 }
             }
         }
         .onAppear {
-            Task { await setupCamera() }
+            Task { await setupCameraSession() }
         }
         .onDisappear {
-            motion.stop()
-            camera.stop()
+            motionDetector.stop()
+            cameraSession.stop()
         }
-        .alert("カメラへのアクセスが必要です", isPresented: $showDeniedAlert) {
+        .alert("カメラへのアクセスが必要です", isPresented: $isCameraAccessDenied) {
             Button("設定を開く") {
                 if let url = URL(string: UIApplication.openSettingsURLString) {
                     UIApplication.shared.open(url)
@@ -62,7 +62,7 @@ struct PanoramicScanView: View {
 
     // MARK: - サブビュー
 
-    private var topBar: some View {
+    private var topOverlay: some View {
         HStack(alignment: .top) {
             Button { dismiss() } label: {
                 Image(systemName: "xmark.circle.fill")
@@ -71,13 +71,13 @@ struct PanoramicScanView: View {
                     .foregroundStyle(.white)
             }
             Spacer()
-            frameThumbnails
+            capturedFrameThumbnails
         }
     }
 
-    private var frameThumbnails: some View {
+    private var capturedFrameThumbnails: some View {
         HStack(spacing: 6) {
-            ForEach(Array(camera.frames.enumerated()), id: \.offset) { i, img in
+            ForEach(Array(cameraSession.capturedFrames.enumerated()), id: \.offset) { _, img in
                 Image(uiImage: img)
                     .resizable()
                     .scaledToFill()
@@ -89,18 +89,18 @@ struct PanoramicScanView: View {
                     )
             }
         }
-        .animation(.spring, value: camera.frames.count)
+        .animation(.spring, value: cameraSession.capturedFrames.count)
     }
 
-    private var bottomControls: some View {
+    private var scanControls: some View {
         VStack(spacing: 16) {
             // ガイドメッセージ
-            guideLabel
+            scanProgressGuide
 
             // ボタン行
             if !isScanning {
                 Button {
-                    startScanning()
+                    beginScanning()
                 } label: {
                     Label("スキャン開始", systemImage: "record.circle")
                         .font(.headline)
@@ -115,9 +115,9 @@ struct PanoramicScanView: View {
                     .foregroundStyle(.white.opacity(0.75))
             } else {
                 // モーション非対応端末ではマニュアル撮影ボタンを表示
-                if !motion.isAvailable {
+                if !motionDetector.isAvailable {
                     Button {
-                        camera.captureFrame()
+                        cameraSession.captureFrame()
                     } label: {
                         Label("フレームを撮影", systemImage: "camera.shutter.button")
                             .font(.headline)
@@ -128,11 +128,11 @@ struct PanoramicScanView: View {
                     .controlSize(.large)
                 }
 
-                if !camera.frames.isEmpty {
+                if !cameraSession.capturedFrames.isEmpty {
                     Button {
-                        finishScanning()
+                        finalizeScanning()
                     } label: {
-                        Label("スキャン完了 (\(camera.frames.count) フレーム)", systemImage: "checkmark.circle.fill")
+                        Label("スキャン完了 (\(cameraSession.capturedFrames.count) フレーム)", systemImage: "checkmark.circle.fill")
                             .font(.headline)
                             .frame(maxWidth: .infinity)
                     }
@@ -143,19 +143,19 @@ struct PanoramicScanView: View {
         }
     }
 
-    private var guideLabel: some View {
+    private var scanProgressGuide: some View {
         Group {
             if !isScanning {
                 EmptyView()
-            } else if camera.frames.isEmpty {
-                pill(text: "カメラをゆっくり右へ移動してください →", icon: "arrow.right")
+            } else if cameraSession.capturedFrames.isEmpty {
+                scanGuidePill(text: "カメラをゆっくり右へ移動してください →", icon: "arrow.right")
             } else {
-                pill(text: "\(camera.frames.count) フレーム撮影済み — 右へ続けて移動", icon: "arrow.right")
+                scanGuidePill(text: "\(cameraSession.capturedFrames.count) フレーム撮影済み — 右へ続けて移動", icon: "arrow.right")
             }
         }
     }
 
-    private func pill(text: String, icon: String) -> some View {
+    private func scanGuidePill(text: String, icon: String) -> some View {
         Label(text, systemImage: icon)
             .font(.subheadline.weight(.medium))
             .foregroundStyle(.white)
@@ -164,7 +164,7 @@ struct PanoramicScanView: View {
             .background(.black.opacity(0.6), in: Capsule())
     }
 
-    private var processingView: some View {
+    private var processingOverlay: some View {
         VStack(spacing: 16) {
             ProgressView()
                 .tint(.white)
@@ -176,40 +176,40 @@ struct PanoramicScanView: View {
 
     // MARK: - ロジック
 
-    private func setupCamera() async {
-        await camera.setup()
-        if camera.isAuthorized {
-            camera.start()
+    private func setupCameraSession() async {
+        await cameraSession.setup()
+        if cameraSession.isAuthorized {
+            cameraSession.start()
         } else {
-            showDeniedAlert = true
+            isCameraAccessDenied = true
         }
     }
 
-    private func startScanning() {
+    private func beginScanning() {
         isScanning = true
         // 開始時に最初のフレームをすぐ撮影
-        camera.captureFrame()
+        cameraSession.captureFrame()
 
-        if motion.isAvailable {
-            motion.onCapture = { camera.captureFrame() }
-            motion.start()
+        if motionDetector.isAvailable {
+            motionDetector.onCapture = { cameraSession.captureFrame() }
+            motionDetector.start()
         }
     }
 
-    private func finishScanning() {
-        motion.stop()
+    private func finalizeScanning() {
+        motionDetector.stop()
         isScanning = false
         isProcessing = true
-        let frames = camera.frames
-        camera.stop()
+        let frames = cameraSession.capturedFrames
+        cameraSession.stop()
 
         Task {
-            let stitched = ImageStitcher.stitch(
+            let stitchedImage = ImageStitcher.stitch(
                 frames,
-                captureAngle: motion.captureAngle
+                captureAngle: motionDetector.captureAngle
             ) ?? frames.last ?? UIImage()
 
-            let rows = await ocr.recognize(image: stitched)
+            let rows = await ocrService.recognizeText(in: stitchedImage)
             let session = LogbookSession(rows: rows)
 
             await MainActor.run {
