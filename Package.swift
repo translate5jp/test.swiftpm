@@ -3,15 +3,15 @@ import PackageDescription
 import AppleProductTypes
 
 let package = Package(
-    name: "test",
+    name: "LogbookScanner",
     platforms: [
         .iOS("17.0")
     ],
     products: [
         .iOSApplication(
-            name: "test",
+            name: "LogbookScanner",
             targets: ["AppModule"],
-            bundleIdentifier: "com.example.test",
+            bundleIdentifier: "com.example.logbook-scanner",
             displayVersion: "1.0",
             bundleVersion: "1",
             supportedDeviceFamilies: [

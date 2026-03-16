@@ -18,16 +18,11 @@ struct LogbookSession: Identifiable {
             .filter { $0.nonEmptyCount >= 3 }
     }
 
-    var formattedDate: String {
+    var formattedScanDate: String {
         let f = DateFormatter()
         f.dateStyle = .medium
         f.timeStyle = .short
         f.locale = Locale(identifier: "ja_JP")
         return f.string(from: date)
-    }
-
-    /// 指定列の合計値
-    func sum(columnId: Int) -> Double {
-        entries.reduce(0) { $0 + FlightEntry.parseNumeric($1[columnId]) }
     }
 }

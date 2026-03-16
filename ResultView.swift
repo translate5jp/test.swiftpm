@@ -16,7 +16,7 @@ struct ResultView: View {
             if entries.isEmpty {
                 emptyState
             } else {
-                logbookTable
+                entriesTable
             }
         }
         .navigationTitle("認識結果")
@@ -31,7 +31,7 @@ struct ResultView: View {
                 ForEach(logbookColumns.filter(\.isNumeric)) { col in
                     SummaryCard(
                         title: col.shortHeader,
-                        rawValue: sum(col),
+                        rawValue: columnTotal(col),
                         isTime: col.isTime
                     )
                 }
@@ -44,7 +44,7 @@ struct ResultView: View {
 
     // MARK: - テーブル（縦横スクロール）
 
-    private var logbookTable: some View {
+    private var entriesTable: some View {
         ScrollView([.horizontal, .vertical], showsIndicators: true) {
             VStack(alignment: .leading, spacing: 0) {
                 headerRow
@@ -104,10 +104,10 @@ struct ResultView: View {
                 .border(Color(.systemGray4))
 
             ForEach(logbookColumns.dropFirst()) { col in
-                let s = sum(col)
-                Text(FlightEntry.formatSum(s, isTime: col.isTime))
+                let total = columnTotal(col)
+                Text(FlightEntry.formatTotal(total, isTime: col.isTime))
                     .font(.caption.bold())
-                    .foregroundStyle(s > 0 ? Color.primary : Color.secondary)
+                    .foregroundStyle(total > 0 ? Color.primary : Color.secondary)
                     .frame(width: col.minWidth, height: 32, alignment: .center)
                     .background(Color.blue.opacity(0.15))
                     .border(Color(.systemGray4))
@@ -125,7 +125,7 @@ struct ResultView: View {
 
     // MARK: - ヘルパー
 
-    private func sum(_ col: LogbookColumn) -> Double {
+    private func columnTotal(_ col: LogbookColumn) -> Double {
         entries.reduce(0) { $0 + FlightEntry.parseNumeric($1[col.id]) }
     }
 }
@@ -138,7 +138,7 @@ private struct SummaryCard: View {
     let isTime: Bool
 
     private var display: String {
-        FlightEntry.formatSum(rawValue, isTime: isTime)
+        FlightEntry.formatTotal(rawValue, isTime: isTime)
     }
 
     var body: some View {

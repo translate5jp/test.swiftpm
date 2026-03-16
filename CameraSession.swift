@@ -4,11 +4,11 @@ import UIKit
 /// AVFoundation カメラセッション管理
 class CameraSession: NSObject, ObservableObject {
     let captureSession = AVCaptureSession()
-    @Published var frames: [UIImage] = []
+    @Published var capturedFrames: [UIImage] = []
     @Published var isAuthorized = false
 
-    private let queue = DispatchQueue(label: "cam.io", qos: .userInitiated)
-    private var wantCapture = false
+    private let sessionQueue = DispatchQueue(label: "cam.io", qos: .userInitiated)
+    private var pendingCapture = false
 
     func setup() async {
         let authorized: Bool
@@ -34,7 +34,7 @@ class CameraSession: NSObject, ObservableObject {
 
         let output = AVCaptureVideoDataOutput()
         output.alwaysDiscardsLateVideoFrames = true
-        output.setSampleBufferDelegate(self, queue: queue)
+        output.setSampleBufferDelegate(self, queue: sessionQueue)
         if captureSession.canAddOutput(output) {
             captureSession.addOutput(output)
         }
@@ -44,20 +44,20 @@ class CameraSession: NSObject, ObservableObject {
 
     func start() {
         guard !captureSession.isRunning else { return }
-        queue.async { self.captureSession.startRunning() }
+        sessionQueue.async { self.captureSession.startRunning() }
     }
 
     func stop() {
         guard captureSession.isRunning else { return }
-        queue.async { self.captureSession.stopRunning() }
+        sessionQueue.async { self.captureSession.stopRunning() }
     }
 
     func captureFrame() {
-        wantCapture = true
+        pendingCapture = true
     }
 
     func reset() {
-        DispatchQueue.main.async { self.frames = [] }
+        DispatchQueue.main.async { self.capturedFrames = [] }
     }
 }
 
@@ -67,8 +67,8 @@ extension CameraSession: AVCaptureVideoDataOutputSampleBufferDelegate {
         didOutput sampleBuffer: CMSampleBuffer,
         from connection: AVCaptureConnection
     ) {
-        guard wantCapture else { return }
-        wantCapture = false
+        guard pendingCapture else { return }
+        pendingCapture = false
 
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
         let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
@@ -76,6 +76,6 @@ extension CameraSession: AVCaptureVideoDataOutputSampleBufferDelegate {
 
         // バックカメラのポートレートでは .right が正位置
         let image = UIImage(cgImage: cgImage, scale: 1.0, orientation: .right)
-        DispatchQueue.main.async { self.frames.append(image) }
+        DispatchQueue.main.async { self.capturedFrames.append(image) }
     }
 }

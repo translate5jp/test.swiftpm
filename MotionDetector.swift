@@ -3,7 +3,6 @@ import Foundation
 
 /// CMMotionManager を使って水平方向の回転を検出し、一定角度ごとに撮影をトリガーする
 class MotionDetector: ObservableObject {
-    @Published var frameCount: Int = 0
 
     private let manager = CMMotionManager()
     private var lastYaw: Double?
@@ -20,7 +19,7 @@ class MotionDetector: ObservableObject {
         manager.deviceMotionUpdateInterval = 1.0 / 30
         manager.startDeviceMotionUpdates(to: .main) { [weak self] motion, _ in
             guard let self, let motion else { return }
-            self.process(motion)
+            self.handleMotionUpdate(motion)
         }
     }
 
@@ -30,10 +29,9 @@ class MotionDetector: ObservableObject {
 
     func reset() {
         lastYaw = nil
-        DispatchQueue.main.async { self.frameCount = 0 }
     }
 
-    private func process(_ motion: CMDeviceMotion) {
+    private func handleMotionUpdate(_ motion: CMDeviceMotion) {
         // ヨー角を度に変換（垂直軸まわりの回転 = 水平パン）
         let yaw = motion.attitude.yaw * (180.0 / .pi)
 
@@ -50,7 +48,6 @@ class MotionDetector: ObservableObject {
         if abs(delta) >= captureAngle {
             lastYaw = yaw
             DispatchQueue.main.async {
-                self.frameCount += 1
                 self.onCapture?()
             }
         }

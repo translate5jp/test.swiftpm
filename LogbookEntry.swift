@@ -44,7 +44,7 @@ struct FlightEntry: Identifiable {
         let count = logbookColumns.count
         var v = Array(repeating: "", count: count)
         for i in 0..<min(row.count, count) {
-            v[i] = Self.clean(row[i], col: logbookColumns[i])
+            v[i] = Self.sanitizeOCR(row[i], col: logbookColumns[i])
         }
         values = v
     }
@@ -59,13 +59,8 @@ struct FlightEntry: Identifiable {
         values.filter { !$0.isEmpty }.count
     }
 
-    var hasAnyNumericValue: Bool {
-        logbookColumns
-            .filter(\.isNumeric)
-            .contains { FlightEntry.parseNumeric(values[$0.id]) > 0 }
-    }
-
     // MARK: 数値パース（小数 or HH:MM 両対応）
+
     static func parseNumeric(_ s: String) -> Double {
         let t = s.trimmingCharacters(in: .whitespaces)
         if let v = Double(t) { return v }
@@ -78,8 +73,9 @@ struct FlightEntry: Identifiable {
         return 0
     }
 
-    // MARK: 合計値の表示フォーマット
-    static func formatSum(_ value: Double, isTime: Bool) -> String {
+    // MARK: 列合計値の表示フォーマット
+
+    static func formatTotal(_ value: Double, isTime: Bool) -> String {
         guard value > 0 else { return "—" }
         if isTime {
             let h = Int(value)
@@ -90,7 +86,8 @@ struct FlightEntry: Identifiable {
     }
 
     // MARK: 数値列の OCR 誤認識を補正
-    private static func clean(_ s: String, col: LogbookColumn) -> String {
+
+    private static func sanitizeOCR(_ s: String, col: LogbookColumn) -> String {
         let t = s.trimmingCharacters(in: .whitespaces)
         guard col.isNumeric else { return t }
         return t

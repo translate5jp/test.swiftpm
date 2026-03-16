@@ -40,7 +40,7 @@ struct OCRService {
                     continuation.resume(returning: [])
                     return
                 }
-                continuation.resume(returning: Self.extractRows(results))
+                continuation.resume(returning: Self.parseTableRows(results))
             }
             request.recognitionLevel = .accurate
             request.recognitionLanguages = ["ja-JP", "en-US"]
@@ -48,7 +48,7 @@ struct OCRService {
             request.usesLanguageCorrection = false
             request.minimumTextHeight = 0.008
             // 空港コード・機種・用語を登録して誤認識を低減
-            request.customWords = Self.customWords
+            request.customWords = Self.logbookVocabulary
 
             try? VNImageRequestHandler(cgImage: cgImage, options: [:]).perform([request])
         }
@@ -57,8 +57,8 @@ struct OCRService {
     // MARK: - カスタム語彙
 
     /// Vision が認識候補として優先する語彙リスト
-    /// 空港 ICAO コード・機体記号プレフィックス・機種略称・ログブック用語を収録
-    private static let customWords: [String] = [
+    /// 空港 ICAO コード・機種略称・ログブック用語を収録
+    private static let logbookVocabulary: [String] = [
         // 国内主要空港 ICAO コード
         "RJAA", "RJTT", "RJBB", "RJOO", "RJCC", "RJFF", "RJFU",
         "ROAH", "RJSN", "RJCH", "RJFK", "RJKA", "RJNK", "RJOA",
@@ -79,48 +79,48 @@ struct OCRService {
 
     // MARK: - 行グループ化 → 列マッピング
 
-    private static func extractRows(_ observations: [VNRecognizedTextObservation]) -> [[String]] {
+    private static func parseTableRows(_ observations: [VNRecognizedTextObservation]) -> [[String]] {
         // 上から順に並べる（Vision 座標系は左下原点）
         let sorted = observations.sorted { $0.boundingBox.minY > $1.boundingBox.minY }
         guard !sorted.isEmpty else { return [] }
 
         // Step1: Y 座標でグループ化（行の平均 Y と比較して安定させる）
-        var rawGroups: [[VNRecognizedTextObservation]] = []
-        var current: [VNRecognizedTextObservation] = [sorted[0]]
+        var rowGroups: [[VNRecognizedTextObservation]] = []
+        var currentGroup: [VNRecognizedTextObservation] = [sorted[0]]
 
         for obs in sorted.dropFirst() {
-            let avgY = current.map(\.boundingBox.midY).reduce(0, +) / CGFloat(current.count)
-            let avgH = current.map(\.boundingBox.height).reduce(0, +) / CGFloat(current.count)
+            let avgY = currentGroup.map(\.boundingBox.midY).reduce(0, +) / CGFloat(currentGroup.count)
+            let avgH = currentGroup.map(\.boundingBox.height).reduce(0, +) / CGFloat(currentGroup.count)
             // 閾値は行高の40%: 同一行内のY変動(±20〜30%)を吸収しつつ行間(50〜100%)では分離する
             let threshold = max(avgH * 0.4, 0.005)
 
             if abs(obs.boundingBox.midY - avgY) < threshold {
-                current.append(obs)
+                currentGroup.append(obs)
             } else {
-                rawGroups.append(current.sorted { $0.boundingBox.minX < $1.boundingBox.minX })
-                current = [obs]
+                rowGroups.append(currentGroup.sorted { $0.boundingBox.minX < $1.boundingBox.minX })
+                currentGroup = [obs]
             }
         }
-        rawGroups.append(current.sorted { $0.boundingBox.minX < $1.boundingBox.minX })
+        rowGroups.append(currentGroup.sorted { $0.boundingBox.minX < $1.boundingBox.minX })
 
         // Step2: 最多アイテム行を基準に列センターを決定
-        guard let refRow = rawGroups.max(by: { $0.count < $1.count }),
-              refRow.count >= 4 else {
+        guard let referenceRow = rowGroups.max(by: { $0.count < $1.count }),
+              referenceRow.count >= 4 else {
             // フォールバック: そのまま文字列に変換
-            return rawGroups.map { $0.compactMap { $0.topCandidates(1).first?.string } }
+            return rowGroups.map { $0.compactMap { $0.topCandidates(1).first?.string } }
         }
 
-        let colCenters = refRow.map { $0.boundingBox.midX }
+        let columnCenters = referenceRow.map { $0.boundingBox.midX }
+        let columnCount = logbookColumns.count
 
         // Step3: 全行を列センターにマッピング
-        let colCount = logbookColumns.count
-        return rawGroups.map { row in
-            mapToColumns(row, centers: colCenters, targetCount: colCount)
+        return rowGroups.map { row in
+            assignToColumns(row, centers: columnCenters, targetCount: columnCount)
         }
     }
 
     /// 観測群を列センター配列に対応させ、空セルを "" で埋めた配列を返す
-    private static func mapToColumns(
+    private static func assignToColumns(
         _ row: [VNRecognizedTextObservation],
         centers: [CGFloat],
         targetCount: Int

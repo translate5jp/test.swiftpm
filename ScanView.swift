@@ -5,14 +5,14 @@ struct ScanView: View {
     let onComplete: (LogbookSession) -> Void
 
     @Environment(\.dismiss) private var dismiss
-    @State private var showImagePicker = false
-    @State private var sourceType: UIImagePickerController.SourceType = .camera
-    @State private var showPanoramic = false
+    @State private var isShowingImagePicker = false
+    @State private var imagePickerSourceType: UIImagePickerController.SourceType = .camera
+    @State private var isShowingPanoramicScan = false
     @State private var isProcessing = false
     @State private var errorMessage: String?
 
     private let ocr = OCRService()
-    private var cameraAvailable: Bool { UIImagePickerController.isSourceTypeAvailable(.camera) }
+    private var isCameraAvailable: Bool { UIImagePickerController.isSourceTypeAvailable(.camera) }
 
     var body: some View {
         NavigationStack {
@@ -41,9 +41,9 @@ struct ScanView: View {
                 } else {
                     VStack(spacing: 12) {
                         // ── パノラマスキャン（横長ページ対応）──
-                        if cameraAvailable {
+                        if isCameraAvailable {
                             Button {
-                                showPanoramic = true
+                                isShowingPanoramicScan = true
                             } label: {
                                 VStack(spacing: 4) {
                                     Label("パノラマスキャン", systemImage: "camera.viewfinder")
@@ -60,10 +60,10 @@ struct ScanView: View {
                         }
 
                         // ── 通常スキャン ──
-                        if cameraAvailable {
+                        if isCameraAvailable {
                             Button {
-                                sourceType = .camera
-                                showImagePicker = true
+                                imagePickerSourceType = .camera
+                                isShowingImagePicker = true
                             } label: {
                                 Label("カメラで1枚撮影", systemImage: "camera")
                                     .frame(maxWidth: .infinity)
@@ -73,8 +73,8 @@ struct ScanView: View {
                         }
 
                         Button {
-                            sourceType = .photoLibrary
-                            showImagePicker = true
+                            imagePickerSourceType = .photoLibrary
+                            isShowingImagePicker = true
                         } label: {
                             Label("フォトライブラリから選択", systemImage: "photo.on.rectangle")
                                 .frame(maxWidth: .infinity)
@@ -102,12 +102,12 @@ struct ScanView: View {
                     Button("キャンセル") { dismiss() }
                 }
             }
-            .sheet(isPresented: $showImagePicker) {
-                ImagePicker(sourceType: sourceType) { image in
-                    Task { await processSingle(image) }
+            .sheet(isPresented: $isShowingImagePicker) {
+                ImagePicker(sourceType: imagePickerSourceType) { image in
+                    Task { await runOCR(on: image) }
                 }
             }
-            .fullScreenCover(isPresented: $showPanoramic) {
+            .fullScreenCover(isPresented: $isShowingPanoramicScan) {
                 PanoramicScanView { session in
                     // PanoramicScanView が自身を dismiss した後、ここで ScanView も閉じる
                     onComplete(session)
@@ -117,7 +117,7 @@ struct ScanView: View {
         }
     }
 
-    private func processSingle(_ image: UIImage) async {
+    private func runOCR(on image: UIImage) async {
         isProcessing = true
         errorMessage = nil
         let rows = await ocr.recognize(image: image)

@@ -2,7 +2,7 @@ import SwiftUI
 
 struct HomeView: View {
     @State private var sessions: [LogbookSession] = []
-    @State private var showScan = false
+    @State private var isShowingScan = false
 
     var body: some View {
         NavigationStack {
@@ -10,20 +10,20 @@ struct HomeView: View {
                 if sessions.isEmpty {
                     emptyState
                 } else {
-                    sessionList
+                    scanSessionList
                 }
             }
             .navigationTitle("ログブック")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button {
-                        showScan = true
+                        isShowingScan = true
                     } label: {
                         Label("スキャン", systemImage: "camera.fill")
                     }
                 }
             }
-            .sheet(isPresented: $showScan) {
+            .sheet(isPresented: $isShowingScan) {
                 ScanView { session in
                     sessions.insert(session, at: 0)
                 }
@@ -37,17 +37,17 @@ struct HomeView: View {
         } description: {
             Text("カメラでログブックを撮影すると\n手書き文字を認識して飛行時間を集計します")
         } actions: {
-            Button("スキャン開始") { showScan = true }
+            Button("スキャン開始") { isShowingScan = true }
                 .buttonStyle(.borderedProminent)
         }
     }
 
-    private var sessionList: some View {
+    private var scanSessionList: some View {
         List {
             ForEach(sessions) { session in
                 NavigationLink(destination: ResultView(session: session)) {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(session.formattedDate)
+                        Text(session.formattedScanDate)
                             .font(.headline)
                         Text("\(session.entries.count) フライト認識済み")
                             .font(.caption)

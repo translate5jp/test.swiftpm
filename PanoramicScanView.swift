@@ -11,7 +11,7 @@ struct PanoramicScanView: View {
 
     @State private var isScanning = false
     @State private var isProcessing = false
-    @State private var showDeniedAlert = false
+    @State private var isShowingCameraAccessAlert = false
 
     private let ocr = OCRService()
 
@@ -32,10 +32,10 @@ struct PanoramicScanView: View {
                 Spacer()
 
                 if isProcessing {
-                    processingView
+                    processingOverlay
                         .padding(.bottom, 48)
                 } else {
-                    bottomControls
+                    controlsPanel
                         .padding(.horizontal)
                         .padding(.bottom, 48)
                 }
@@ -48,7 +48,7 @@ struct PanoramicScanView: View {
             motion.stop()
             camera.stop()
         }
-        .alert("カメラへのアクセスが必要です", isPresented: $showDeniedAlert) {
+        .alert("カメラへのアクセスが必要です", isPresented: $isShowingCameraAccessAlert) {
             Button("設定を開く") {
                 if let url = URL(string: UIApplication.openSettingsURLString) {
                     UIApplication.shared.open(url)
@@ -71,13 +71,13 @@ struct PanoramicScanView: View {
                     .foregroundStyle(.white)
             }
             Spacer()
-            frameThumbnails
+            capturedFrameThumbnails
         }
     }
 
-    private var frameThumbnails: some View {
+    private var capturedFrameThumbnails: some View {
         HStack(spacing: 6) {
-            ForEach(Array(camera.frames.enumerated()), id: \.offset) { i, img in
+            ForEach(Array(camera.capturedFrames.enumerated()), id: \.offset) { i, img in
                 Image(uiImage: img)
                     .resizable()
                     .scaledToFill()
@@ -89,13 +89,13 @@ struct PanoramicScanView: View {
                     )
             }
         }
-        .animation(.spring, value: camera.frames.count)
+        .animation(.spring, value: camera.capturedFrames.count)
     }
 
-    private var bottomControls: some View {
+    private var controlsPanel: some View {
         VStack(spacing: 16) {
             // ガイドメッセージ
-            guideLabel
+            scanGuide
 
             // ボタン行
             if !isScanning {
@@ -128,11 +128,11 @@ struct PanoramicScanView: View {
                     .controlSize(.large)
                 }
 
-                if !camera.frames.isEmpty {
+                if !camera.capturedFrames.isEmpty {
                     Button {
                         finishScanning()
                     } label: {
-                        Label("スキャン完了 (\(camera.frames.count) フレーム)", systemImage: "checkmark.circle.fill")
+                        Label("スキャン完了 (\(camera.capturedFrames.count) フレーム)", systemImage: "checkmark.circle.fill")
                             .font(.headline)
                             .frame(maxWidth: .infinity)
                     }
@@ -143,19 +143,19 @@ struct PanoramicScanView: View {
         }
     }
 
-    private var guideLabel: some View {
+    private var scanGuide: some View {
         Group {
             if !isScanning {
                 EmptyView()
-            } else if camera.frames.isEmpty {
-                pill(text: "カメラをゆっくり右へ移動してください →", icon: "arrow.right")
+            } else if camera.capturedFrames.isEmpty {
+                guidePill(text: "カメラをゆっくり右へ移動してください →", icon: "arrow.right")
             } else {
-                pill(text: "\(camera.frames.count) フレーム撮影済み — 右へ続けて移動", icon: "arrow.right")
+                guidePill(text: "\(camera.capturedFrames.count) フレーム撮影済み — 右へ続けて移動", icon: "arrow.right")
             }
         }
     }
 
-    private func pill(text: String, icon: String) -> some View {
+    private func guidePill(text: String, icon: String) -> some View {
         Label(text, systemImage: icon)
             .font(.subheadline.weight(.medium))
             .foregroundStyle(.white)
@@ -164,7 +164,7 @@ struct PanoramicScanView: View {
             .background(.black.opacity(0.6), in: Capsule())
     }
 
-    private var processingView: some View {
+    private var processingOverlay: some View {
         VStack(spacing: 16) {
             ProgressView()
                 .tint(.white)
@@ -181,7 +181,7 @@ struct PanoramicScanView: View {
         if camera.isAuthorized {
             camera.start()
         } else {
-            showDeniedAlert = true
+            isShowingCameraAccessAlert = true
         }
     }
 
@@ -200,7 +200,7 @@ struct PanoramicScanView: View {
         motion.stop()
         isScanning = false
         isProcessing = true
-        let frames = camera.frames
+        let frames = camera.capturedFrames
         camera.stop()
 
         Task {
