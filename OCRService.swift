@@ -65,8 +65,6 @@ struct OCRService {
         "RJOB", "RJOC", "RJOH", "RJOS", "RJOW", "RJSA", "RJSK",
         "RJSS", "RJTA", "RJTO", "RJTJ", "RJTY", "RJNG", "RJNA",
         "RJCO", "RJCJ", "RJEC", "RJEO", "RJCM", "RJEO", "RJFE",
-        // 機体記号プレフィックス
-        "JA",
         // 機種略称（大型機）
         "B737", "B747", "B767", "B777", "B787",
         "A320", "A321", "A330", "A350", "A380",
